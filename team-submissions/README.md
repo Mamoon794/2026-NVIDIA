@@ -1,7 +1,5 @@
 ## Deliverables Checklist
 
-Please add all deliverables to the `teams-submissions` directory of your forked repository.
-
 **Step 0:**
 The Project Lead should fork this repository and share the forked repository link with the NVIDIA judges in a DM on discord (`Monica-NVIDIA`, `Linsey-NV Mentor`, and `Iman`).  
 
@@ -48,3 +46,4 @@ This challenge is graded on **Rigorous Engineering**, not just raw speed. We are
     * **The Narrative:** Your presentation must tell the story of "The Plan & The Pivot." Did you identify *why* you had to change your strategy?
     * **The AI Report:** Your `AI_REPORT.md` must demonstrate *how* you verified AI-generated code, including specific examples of "Wins" and "Hallucinations."
 
+> For submissions, please place the deliverables in the `teams-submissions` directory of your forked repository and notify the judges.
