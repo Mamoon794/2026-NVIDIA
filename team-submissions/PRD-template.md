@@ -1,104 +1,133 @@
 # Product Requirements Document (PRD)
 
-**Project Name:** [e.g., LABS-Solv-V1]
-**Team Name:** [e.g., QuantumVibes]
-**GitHub Repository:** [Insert Link Here]
+**Project Name:** Q-LABS-Hybrid-Solver
+**Team Name:** I Tried
+**GitHub Repository:** [https://github.com/Mamoon794/2026-NVIDIA](https://github.com/Mamoon794/2026-NVIDIA)
 
 ---
 
-> **Note to Students:** > The questions and examples provided in the specific sections below are **prompts to guide your thinking**, not a rigid checklist. 
-> * **Adaptability:** If a specific question doesn't fit your strategy, you may skip or adapt it.
-> * **Depth:** You are encouraged to go beyond these examples. If there are other critical technical details relevant to your specific approach, please include them.
-> * **Goal:** The objective is to convince the reader that you have a solid plan, not just to fill in boxes.
+> **Note to Judges:** This PRD outlines our strategy for implementing a Quantum-Enhanced Memetic Tabu Search (QE-MTS) to solve the Low Autocorrelation Binary Sequences (LABS) problem. Our approach combines a Counteradiabatic quantum optimization routine with a GPU-accelerated classical local search.
 
 ---
 
-## 1. Team Roles & Responsibilities [You can DM the judges this information instead of including it in the repository]
+## 1. Team Roles & Responsibilities
 
-| Role | Name | GitHub Handle | Discord Handle
-| :--- | :--- | :--- | :--- |
-| **Project Lead** (Architect) | [Name] | [@handle] | [@handle] |
-| **GPU Acceleration PIC** (Builder) | [Name] | [@handle] | [@handle] |
-| **Quality Assurance PIC** (Verifier) | [Name] | [@handle] | [@handle] |
-| **Technical Marketing PIC** (Storyteller) | [Name] | [@handle] | [@handle] |
+| Role | Name | GitHub Handle | Discord Handle |
+| --- | --- | --- | --- |
+| **Project Lead** (Architect) | Mamoon Akhtar | Mamoon794 | alphaprime7537 |
+| **GPU Acceleration PIC** (Builder) | Mamoon Akhtar | Mamoon794 | alphaprime7537 |
+| **Quality Assurance PIC** (Verifier) | Mamoon Akhtar | Mamoon794 | alphaprime7537 |
+| **Technical Marketing PIC** (Storyteller) | Mamoon Akhtar | Mamoon794 | alphaprime7537 |
 
 ---
 
 ## 2. The Architecture
+
 **Owner:** Project Lead
 
 ### Choice of Quantum Algorithm
-* **Algorithm:** [Identify the specific algorithm or ansatz]
-    * *Example:* "Quantum Approximate Optimization Algorithm (QAOA) with a hardware-efficient ansatz."
-    * *Example:* "Variational Quantum Eigensolver (VQE) using a custom warm-start initialization."
 
-* **Motivation:** [Why this algorithm? Connect it to the problem structure or learning goals.]
-    * *Example (Metric-driven):* "We chose QAOA because we believe the layer depth corresponds well to the correlation length of the LABS sequences."
-    *  Example (Skills-driven):* "We selected VQE to maximize skill transfer. Our senior members want to test a novel 'warm-start' adaptation, while the standard implementation provides an accessible ramp-up for our members new to quantum variational methods."
-   
+* **Algorithm:** **Trotterized Counteradiabatic Optimization**
+* I implement a specific Counteradiabatic (CD) drive derived for the LABS Hamiltonian ().
+* The circuit utilizes specific "Pauli Gadgets" for 2-body () and 4-body () interaction terms.
+* The evolution is governed by an annealing schedule  and a CD coefficient  which determines the rotation angles .
+
+
+* **Motivation:**
+* **Efficiency:** Standard QAOA requires deep circuits to optimize the complex LABS landscape. The Counteradiabatic approach suppresses diabatic transitions, allowing us to stay near the ground state with significantly fewer entangling gates than QAOA.
+* **Hybrid Synergy:** I do not rely on the quantum computer to find the *perfect* solution. Instead, I use the CD protocol to sample a distribution of "high-quality" bitstrings to seed our classical Memetic Tabu Search, bypassing the "cold start" problem of random initialization.
+
+
 
 ### Literature Review
-* **Reference:** [Title, Author, Link]
-* **Relevance:** [How does this paper support your plan?]
-    * *Example:* "Reference: 'QAOA for MaxCut.' Relevance: Although LABS is different from MaxCut, this paper demonstrates how parameter concentration can speed up optimization, which we hope to replicate."
+
+* **Reference:** *Scaling advantage with quantum-enhanced memetic tabu search for LABS*.
+* **Relevance:** This is the foundational paper for our implementation. It provides the derivation for the first-order approximate adiabatic gauge potential and the specific Trotter decomposition I implemented in our CUDA-Q kernels.
 
 ---
 
 ## 3. The Acceleration Strategy
+
 **Owner:** GPU Acceleration PIC
 
 ### Quantum Acceleration (CUDA-Q)
-* **Strategy:** [How will you use the GPU for the quantum part?]
-    * *Example:* "After testing with a single L4, we will target the `nvidia-mgpu` backend to distribute the circuit simulation across multiple L4s for large $N$."
- 
+
+* **Strategy:**
+* **Multi-GPU Backend:** I will migrate from the `qpp` (CPU) backend to the `nvidia-mgpu` backend in CUDA-Q. This allows me to distribute the state vector of the 40+ qubit system across multiple GPUs (e.g., A100s or H100s) to handle the exponential memory requirement.
+* **Trotter Step Optimization:** I will benchmark the fidelity vs. depth trade-off. I aim to find the minimum number of Trotter steps required to maintain a sufficient "overlap" with the ground state, minimizing the total kernel execution time on the GPU.
+
+
 
 ### Classical Acceleration (MTS)
-* **Strategy:** [The classical search has many opportuntities for GPU acceleration. What will you chose to do?]
-    * *Example:* "The standard MTS evaluates neighbors one by one. We will use `cupy` to rewrite the energy function to evaluate a batch of 1,000 neighbor flips simultaneously on the GPU."
+
+* **Strategy:**
+* **Batch Evaluation:** The current CPU implementation evaluates neighbor energies sequentially. I will use **CuPy** to vectorize this process. By broadcasting the `calculate_energy` function, I can evaluate all  neighbors of a sequence simultaneously on the GPU in a single kernel launch.
+* **Parallel Populations:** Instead of evolving one population on one core, I will run multiple independent MTS populations in parallel on the GPU, synchronizing them only for "migration" (sharing best solutions) every  generations.
+
+
 
 ### Hardware Targets
-* **Dev Environment:** [e.g., Qbraid (CPU) for logic, Brev L4 for initial GPU testing]
-* **Production Environment:** [e.g., Brev A100-80GB for final N=50 benchmarks]
+
+* **Dev Environment:** Qbraid (Standard CPU) for logic validation and unit testing.
+* **Production Environment:** Brev.dev (NVIDIA A100-80GB or L4 instances) for performance benchmarking and large  simulations.
 
 ---
 
 ## 4. The Verification Plan
+
 **Owner:** Quality Assurance PIC
 
 ### Unit Testing Strategy
-* **Framework:** [e.g., `pytest`, `unittest`]
-* **AI Hallucination Guardrails:** [How do you know the AI code is right?]
-    * *Example:* "We will require AI-generated kernels to pass a 'property test' (Hypothesis library) ensuring outputs are always within theoretical energy bounds before they are integrated."
+
+* **Framework:** `pytest`
+* **AI Hallucination Guardrails:**
+* **Analytical Checks:** Every kernel generated by AI agents must pass a "small " check. I run the kernel, compute the state vector, and compare the expectation value against a brute-force matrix multiplication of the Hamiltonian.
+* **Determinism:** I ensure that setting a fixed random seed in the classical MTS produces identical results across runs, ensuring our optimizations don't introduce race conditions.
+
+
 
 ### Core Correctness Checks
-* **Check 1 (Symmetry):** [Describe a specific physics check]
-    * *Example:* "LABS sequence $S$ and its negation $-S$ must have identical energies. We will assert `energy(S) == energy(-S)`."
-* **Check 2 (Ground Truth):**
-    * *Example:* "For $N=3$, the known optimal energy is 1.0. Our test suite will assert that our GPU kernel returns exactly 1.0 for the sequence `[1, 1, -1]`."
+
+* **Check 1 (Symmetry Invariance):**
+* The LABS energy function is invariant under bit-flip and reversal. Our test suite asserts `energy(S) == energy(-S) == energy(reversed(S))` for randomly generated sequences.
+
+
+* **Check 2 (Ground Truth Validation):**
+* For small N's, I run the MTS and compare if the energy outputed is the same as the one that would've been if calculated by hand
+
 
 ---
 
 ## 5. Execution Strategy & Success Metrics
+
 **Owner:** Technical Marketing PIC
 
 ### Agentic Workflow
-* **Plan:** [How will you orchestrate your tools?]
-    * *Example:* "We are using Cursor as the IDE. We have created a `skills.md` file containing the CUDA-Q documentation so the agent doesn't hallucinate API calls. The QA Lead runs the tests, and if they fail, pastes the error log back into the Agent to refactor."
+
+* **Plan:**
+* **Role-Based Prompting:** I use specific system prompts for our AI coding assistants. One session is the "Quantum Physicist" (deriving math to code), another is the "CUDA Optimization Expert" (refactoring loops for CuPy).
+* **Verification Loop:** Code is never blindly accepted. The workflow is: *Agent Generates Code*  *Human Reviews Logic*  *Integration*.
+
+
 
 ### Success Metrics
-* **Metric 1 (Approximation):** [e.g., Target Ratio > 0.9 for N=30]
-* **Metric 2 (Speedup):** [e.g., 10x speedup over the CPU-only Tutorial baseline]
-* **Metric 3 (Scale):** [e.g., Successfully run a simulation for N=40]
+
+* **Metric 1 (Performance):** Achieve a Time-to-Solution (TTS) for  that is at least **5x faster** on the Brev GPU instance compared to the qBraid CPU baseline.
+* **Metric 2 (Quality):** The Quantum-Seeded MTS should find the ground state (or best known state) in **fewer generations** (lower iteration count) than the Random-Seeded MTS for .
+* **Metric 3 (Scale):** Successfully execute a simulation for , a size intractable for naive verification, demonstrating memory management capabilities.
 
 ### Visualization Plan
-* **Plot 1:** [e.g., "Time-to-Solution vs. Problem Size (N)" comparing CPU vs. GPU]
-* **Plot 2:** [e.g., "Convergence Rate" (Energy vs. Iteration count) for the Quantum Seed vs. Random Seed]
+
+* **Plot 1:** **"The Quantum Head Start"** - A line plot showing *Current Best Energy* vs. *Generation Count* for both Quantum-Seeded and Random-Seeded runs. I expect the Quantum line to start lower and converge faster.
+* **Plot 2:** **"Scaling Wall"** - A log-log plot of *Time per Iteration* vs. *N* comparing the CPU (NumPy) MTS implementation against the GPU (CuPy) implementation.
 
 ---
 
 ## 6. Resource Management Plan
-**Owner:** GPU Acceleration PIC 
 
-* **Plan:** [How will you avoid burning all your credits?]
-    * *Example:* "We will develop entirely on Qbraid (CPU) until the unit tests pass. We will then spin up a cheap L4 instance on Brev for porting. We will only spin up the expensive A100 instance for the final 2 hours of benchmarking."
-    * *Example:* "The GPU Acceleration PIC is responsible for manually shutting down the Brev instance whenever the team takes a meal break."
+**Owner:** GPU Acceleration PIC
+
+* **Plan:**
+* **Zero-Waste Policy:** Heavy compute (MTS benchmarks) will only be run on Brev instances *after* the logic is verified on the free Qbraid CPU tier.
+* **Instance Management:** The Brev instance will be stopped immediately after data collection.
+* **Credit Budget:** I allocate 20% of credits for setup/environment debugging, 60% for the main benchmark runs, and hold 20% in reserve for final runs.
